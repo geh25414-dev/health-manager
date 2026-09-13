@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>彰師大生活管家</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #38bdf8;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+      --success: #34d399;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; padding-bottom: 80px; }
+    .header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .time-badge { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+    .day-badge { background: #0284c7; color: white; padding: 4px 10px; border-radius: 99px; font-size: 0.85rem; font-weight: 600; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .title { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .tag { background: #334155; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; color: var(--muted); }
+    .checklist label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #334155; font-size: 0.95rem; cursor: pointer; }
+    .checklist label:last-child { border-bottom: none; }
+    input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); margin-top: 2px; }
+    .progress-wrap { margin-top: 6px; }
+    .progress-bar { width: 100%; height: 8px; background: #334155; border-radius: 99px; overflow: hidden; margin-top: 4px; }
+    .progress-fill { height: 100%; background: var(--success); width: 0%; transition: width 0.3s ease; }
+    .water-btn { background: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; margin-top: 8px; font-size: 0.9rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <div id="clock" class="time-badge">--:--</div>
+      <div style="font-size: 0.85rem; color: var(--muted);">彰師進德 · 減脂生活節奏</div>
+    </div>
+    <div id="dayTag" class="day-badge">載入中</div>
+  </div>
+
+  <div class="card" style="border-left: 4px solid var(--accent);">
+    <div class="title">📍 現在該做什麼</div>
+    <div id="nowAction" style="font-size: 0.95rem; line-height: 1.5; color: #e2e8f0;">讀取中...</div>
+  </div>
+
+  <div class="card">
+    <div class="title">🏋️ 今日訓練課表 <span id="workoutTarget" class="tag"></span></div>
+    <div class="checklist" id="workoutList"></div>
+  </div>
+
+  <div class="card">
+    <div class="title">🥗 今日外食飲食建議</div>
+    <div id="mealSuggestion" style="font-size: 0.92rem; line-height: 1.6; color: #cbd5e1;"></div>
+    <div style="font-size: 0.8rem; color: var(--muted); margin-top: 8px;">目標：2100 kcal / 150g 蛋白質 / 預算 ≤ 230元</div>
+  </div>
+
+  <div class="card">
+    <div class="title">💧 水分紀錄 (目標 3000ml)</div>
+    <div style="font-size: 0.9rem;">目前已攝取：<span id="waterText" style="font-weight: 700; color: var(--accent);">0</span> ml</div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div id="waterBar" class="progress-fill"></div></div>
+    </div>
+    <button class="water-btn" onclick="addWater(300)">+ 喝一杯水 (300ml)</button>
+    <button class="water-btn" style="background: #475569;" onclick="resetWater()">重設</button>
+  </div>
+
+  <script>
+    const workouts = [
+      { day: 0, name: "週日：備餐與休養", target: "採買與休息", tasks: ["全聯買大罐無糖豆奶(2000ml)", "採買燕麥片或茶葉蛋備用", "晚間早點就寢避免水腫"] },
+      { day: 1, name: "週一：推（胸/肩/三頭）", target: "胸肩強化", tasks: ["啞鈴平躺臥推 4組 × 8-10次", "上斜啞鈴臥推 3組 × 10-12次", "啞鈴側平舉 4組 × 15次", "滑輪三頭下拉 3組 × 12次"] },
+      { day: 2, name: "週二：拉（背/二頭）", target: "倒三角背部", tasks: ["滑輪下拉(寬握) 4組 × 8-10次", "坐姿划船 4組 × 10-12次", "反向飛鳥 4組 × 15次(改善駝背)", "二頭彎舉 3組 × 12次"] },
+      { day: 3, name: "週三：主動修復", target: "有氧與專注", tasks: ["不重訓，專案學習或課業", "跑步機坡度快走 25分鐘", "滾筒放鬆上背胸椎"] },
+      { day: 4, name: "週四：腿與核心", target: "下肢代謝", tasks: ["深蹲 4組 × 8-10次", "羅馬尼亞硬舉(RDL) 3組 × 10次", "弓步蹲 3組 × 10次/側", "懸垂抬腿/平板支撐 3組"] },
+      { day: 5, name: "週五：衣架子肩背", target: "倒三角加強", tasks: ["引體向上(或輔助) 4組", "滑輪側平舉 4組 × 15次", "面拉(Face Pull) 4組 × 20次", "站姿啞鈴推舉 3組 × 10次"] },
+      { day: 6, name: "週六：放鬆與散步", target: "動態恢復", tasks: ["校園或散步 6000-8000 步", "伸展腿後側與胸大肌", "不碰高糖宵夜與含糖手搖"] }
+    ];
+
+    let currentWater = parseInt(localStorage.getItem('water_ml') || '0');
+
+    function updateDashboard() {
+      const now = new Date();
+      const h = now.getHours();
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const day = now.getDay();
+
+      document.getElementById('clock').innerText = `${String(h).padStart(2, '0')}:${m}`;
+      const todayData = workouts[day];
+      document.getElementById('dayTag').innerText = todayData.name.split('：')[0];
+      document.getElementById('workoutTarget').innerText = todayData.target;
+
+      // 渲染課表
+      const listEl = document.getElementById('workoutList');
+      listEl.innerHTML = todayData.tasks.map((t, idx) => `
+        <label><input type="checkbox" id="t_${day}_${idx}"> <span>${t}</span></label>
+      `).join('');
+
+      // 即時建議
+      let action = "";
+      let meal = "";
+      if (h >= 7 && h < 9) {
+        action = "晨間補水 500ml，擦防曬整理頭髮。準備吃乾淨高蛋白早餐。";
+        meal = "義美無糖豆奶 450ml ＋ 茶葉蛋 2 顆 ＋ 地瓜 1 顆 (約 450 kcal / 29g 蛋白質)";
+      } else if (h >= 9 && h < 12) {
+        action = "早堂專注課業，多喝水，注意收下巴挺胸、不駝背。";
+        meal = "保持水分攝取，拒絕含糖飲料，可喝黑咖啡消水腫。";
+      } else if (h >= 12 && h < 14) {
+        action = "午餐時間：實踐路挑選原塊肉便當，吃完散步 10 分鐘。";
+        meal = "實踐路滷雞腿便當（飯減半、3 格純蔬菜、絕不淋肉燥）(約 600 kcal / 35g 蛋白質)";
+      } else if (h >= 14 && h < 17) {
+        action = "下午自習 / 寫程式，練前 1 小時（約 16:30）補充碳水。";
+        meal = "香蕉 1 根 或 鮪魚御飯糰 1 個 (提供稍後重訓動能)";
+      } else if (h >= 17 && h < 19) {
+        action = "前往進德體育館進行 45-60 分鐘課表重訓，維持組間組次！";
+        meal = "重訓過程中持續小口補充 500ml 水分。";
+      } else if (h >= 19 && h < 21) {
+        action = "黃金修復期：進食晚餐修復肌肉，洗熱水澡放鬆神經。";
+        meal = "超商雞胸肉 ＋ 茶碗蒸 ＋ 地瓜 (或麵店大份嘴邊肉+青菜冬粉) (約 650 kcal / 40g 蛋白質)";
+      } else {
+        action = "睡前放鬆，遠離手機螢幕，做好夜間臉部保濕，早點就寢消水腫。";
+        meal = "若飢餓可喝水或吃 1 顆水煮蛋，絕對避開泡麵洋芋片。";
+      }
+      document.getElementById('nowAction').innerText = action;
+      document.getElementById('mealSuggestion').innerText = meal;
+      updateWaterUI();
+    }
+
+    function addWater(amount) {
+      currentWater = Math.min(currentWater + amount, 4000);
+      localStorage.setItem('water_ml', currentWater);
+      updateWaterUI();
+    }
+
+    function resetWater() {
+      currentWater = 0;
+      localStorage.setItem('water_ml', 0);
+      updateWaterUI();
+    }
+
+    function updateWaterUI() {
+      document.getElementById('waterText').innerText = currentWater;
+      const pct = Math.min((currentWater / 3000) * 100, 100);
+      document.getElementById('waterBar').style.width = pct + '%';
+    }
+
+    setInterval(updateDashboard, 10000);
+    updateDashboard();
+  </script>
+</body>
+</html>
